@@ -1,7 +1,6 @@
 # Wellphone Research：手机后台并行 Agent 的实现思路调研
 
 > 本文档是联网调研（GitHub / arXiv / AOSP / 技术社区）的结果沉淀，用于记录**实现思路、平台原语、同类项目、论文与待验证问题**。
-> 配套文档：`homework.md`（题目）、`workplan.md`（定稿计划）、`workplan_outline.md`（早期提纲，本文档第 3 节对其关键技术判断做了纠错）。
 > 调研日期：2026-09-24。
 
 ---
@@ -38,15 +37,15 @@
 
 ---
 
-## 3. 对 `workplan_outline.md` 的纠错
+## 3. 需要纠正的两类常见误区
 
-`workplan_outline.md` 有两处关键技术判断是错误的，必须在实现前纠正，否则整个方案会在演示时失败。
+方案设计中最容易出现两类关键技术判断错误，必须在实现前纠正，否则会在演示时失败。
 
-### 3.1 错误一：认为"agent 通过 ADB 操作主屏，用户无感知"
+### 3.1 误区一：认为"agent 通过 ADB 操作主屏，用户无感知"
 
-原文第 5.1 节：
+常见表述：
 
-> 核心思路：用户看到的是手机的正常显示，agent 的操作通过底层 ADB 执行，用户在应用层无感知。
+> 用户看到的是手机的正常显示，agent 的操作通过底层 ADB 执行，用户在应用层无感知。
 
 **这是错的。** `adb shell input tap x y` 不带 `-d` 时，事件注入到 **display 0（主屏）**。用户会直接看到：
 - 画面跳转（agent 启动 App 会切前台）
@@ -55,9 +54,9 @@
 
 ADB 只是"执行通道"，它不提供任何隔离。**隔离必须来自 VirtualDisplay。**
 
-### 3.2 错误二：认为"UiAutomator / AccessibilityService 可后台执行且不抢焦点"
+### 3.2 误区二：认为"UiAutomator / AccessibilityService 可后台执行且不抢焦点"
 
-原文 2.2 模块 B：
+常见表述：
 
 > UiAutomator：Android 官方自动化框架，可后台执行
 
@@ -65,7 +64,7 @@ UiAutomator 操作的是**当前聚焦的 display**；AccessibilityService 只�
 
 ### 3.3 结论
 
-`workplan_outline.md` 中**有价值的部分**（云端大脑 + 手机端执行的分层、模型选型对比、风险表）可以保留；但**执行层必须整体替换为虚拟屏方案**。请以 `workplan.md` + 本文档为准。
+上述判断中**通用的分层思路**（云端大脑 + 手机端执行的分层、模型选型对比、风险表）可以保留；但**执行层必须整体替换为虚拟屏方案**，以本文档后续章节为准。
 
 ---
 
@@ -380,7 +379,7 @@ press_back  press_key  wait  finish
                      全部绑定同一个 displayId
 ```
 
-### 8.1 与 `workplan.md` 目录结构的对应
+### 8.1 分层与模块文件的对应
 
 | 层 | 对应文件（snake_case） |
 |---|---|
@@ -391,7 +390,7 @@ press_back  press_key  wait  finish
 | L4 | `wellphone/agent/vlm_agent.py`、`action_space.py`、`model_provider.py` |
 | L5 | `wellphone/agent/mission_plan.py`、`wellphone/main.py` |
 
-### 8.2 阶段化落地（与 workplan D1–D7 对齐）
+### 8.2 阶段化落地（D1–D7）
 
 | 阶段 | 做什么 | 走哪条路径 |
 |---|---|---|
