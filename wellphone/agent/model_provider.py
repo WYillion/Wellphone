@@ -6,7 +6,7 @@ import re
 
 import requests
 
-from wellphone.agent.action_space import ACTIONS, Action
+from wellphone.agent.action_space import ACTIONS, FINISH, Action
 
 
 class ModelProviderError(RuntimeError):
@@ -101,7 +101,8 @@ class ModelProvider:
         except json.JSONDecodeError as exc:
             raise ModelProviderError(f"invalid JSON in model reply: {content[:200]!r}") from exc
 
-    def parse_action(self, payload: dict, display_id: int) -> Action:
+    @staticmethod
+    def parse_action(payload: dict, display_id: int) -> Action:
         name = payload.get("name", "")
         if name not in ACTIONS:
             raise ModelProviderError(f"unknown action {name!r}")
@@ -117,3 +118,22 @@ class ModelProvider:
             reason=payload.get("reason"),
             duration_ms=payload.get("duration_ms", 300),
         )
+
+
+class ScriptedProvider:
+    def __init__(self, script: list[dict]):
+        self._script = list(script)
+
+    def decide(
+        self,
+        task: str,
+        screenshot_png: bytes | None,
+        ui_dump: str,
+        history: list[str],
+    ) -> dict:
+        if self._script:
+            return self._script.pop(0)
+        return {"name": FINISH_ACTION, "reason": "script exhausted"}
+
+    def parse_action(self, payload: dict, display_id: int) -> Action:
+        return ModelProvider.parse_action(payload, display_id)

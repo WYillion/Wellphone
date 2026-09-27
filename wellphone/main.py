@@ -5,7 +5,7 @@ import sys
 from dataclasses import replace
 
 from wellphone.agent.mission_plan import MissionPlan
-from wellphone.agent.model_provider import ModelProvider
+from wellphone.agent.model_provider import ModelProvider, ScriptedProvider
 from wellphone.agent.vlm_agent import VlmAgent
 from wellphone.config.settings import Settings, load_settings
 from wellphone.device.adb_client import AdbClient
@@ -85,15 +85,24 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if settings.dry_run:
             frame_source = DryFrameSource()
+            provider = ScriptedProvider(
+                [
+                    {"name": "Tap", "x": 540, "y": 1600, "reason": "focus input field"},
+                    {"name": "Type", "text": args.text},
+                    {"name": "Finish", "reason": "message sent"},
+                ]
+            )
         elif args.perception == "scrcpy":
             frame_source = ScrcpyRecordSource(settings.scrcpy_bin, settings.serial)
+            provider = ModelProvider(
+                settings.vlm_base_url, settings.vlm_api_key, settings.vlm_model
+            )
         else:
             frame_source = ScreencapSource(adb)
+            provider = ModelProvider(
+                settings.vlm_base_url, settings.vlm_api_key, settings.vlm_model
+            )
         frame_source.start(display_id)
-
-        provider = ModelProvider(
-            settings.vlm_base_url, settings.vlm_api_key, settings.vlm_model
-        )
         agent = VlmAgent(provider, display_id)
         gate = TakeOverGate()
         executor = ActionExecutor(adb, runner, InputChannel(adb))
