@@ -83,5 +83,6 @@ wellphone/
 | `docs/research.md` | 平台原语、三条建屏路径、论文与待验证清单 |
 | `docs/research_else.md` | GitHub 同类项目调研与差异化定位 |
 | `docs/suggestion.md` | 面向题方的技术方向建议（提交物素材） |
-| `docs/feasibility.md` | D1 实测结论与逐阶段卡点记录（待产出） |
-| `docs/tech_choices.md` | 技术选型论证（待产出，答辩核心） |
+| `docs/feasibility.md` | D1 实测清单与逐阶段卡点记录（模板已就绪，待 D1 实测填写） |
+| `docs/tech_choices.md` | 技术选型论证（答辩核心，已产出） |
+| `docs/demo_plan.md` | 演示视频分镜脚本（已产出） |
