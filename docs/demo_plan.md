@@ -17,6 +17,15 @@
 
 1. 演示机不打开正在被自动化的 App（会把它从虚拟屏拉走）。
 2. 不对准支付密码页（投屏黑屏风险，分镜已规避）。
-3. 只开 1 块虚拟屏（硬件编码器限制 ≤2）。
+3. 只开 1 块虚拟屏（双虚拟屏实测通过，但演示无需多开）。
 4. phase_1 / phase_2 分两段录制，任一失败可独立替换，不耦合。
 5. 失败卡点如实保留字幕说明（题目明确认可其价值）。
+
+## D1 实测背书（2026-09-28）
+
+- **机型**：Xiaomi Redmi 24129PN74C / Android 16 / HyperOS 3.0
+- **核心验证**：scrcpy `--new-display` 建屏 + `--start-app` 启动 App + `input -d` 注入 + `--display-ime-policy=local` IME 隔离 — 全部通过
+- **主屏隔离**：60 次 `input -d` 操作后主屏 `FocusedDisplayId=0` 不变
+- **稳定性**：60 步长任务，PSS 265MB 无泄漏，scrcpy 未崩溃
+- **无头录屏**：`--no-playback` + `--record` 可取证，不弹 PC 窗口
+- 详见 `docs/feasibility.md`

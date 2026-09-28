@@ -15,6 +15,12 @@
 
 - **动机**：D1 用最少开发量打通全链路；shell 身份是普通 App 拿不到、而本题明确允许（"连着电脑跑不算作弊"）的能力。
 - **依据**：scrcpy 提供 `--new-display` / `--start-app` / `--display-ime-policy=local` / `--display-id` 全套原语；零 Android 开发。
+- **D1 实测确认**（小米 Redmi 24129PN74C / Android 16 / HyperOS 3.0）：
+  - ✅ `--new-display=1080x1920` 成功建虚拟屏（id=2–7），`--start-app` 成功在指定虚拟屏启动设置/支付宝
+  - ✅ **可同时建多块虚拟屏**（双屏实测通过，两 scrcpy 实例并行录屏正常）
+  - ✅ `--display-ime-policy=local` 生效：虚拟屏有独立 IME client（`mSelfReportedDisplayId` 区分）
+  - ✅ `input -d <id>` 生效：tap / swipe / keyevent / text(ASCII) 均成功，主屏 `FocusedDisplayId` 始终为 0
+  - ✅ 60 步长任务稳定（PSS 265MB 无泄漏，scrcpy 未崩溃）
 - **放弃/备选**：
   - 路径 A `overlay_display_devices`：只能建一块屏，仅作对照实验；
   - 路径 C 自研 shell APK（`app_process`）：完全掌控 hidden flags，路径 B 失败时升级；
@@ -25,6 +31,7 @@
 
 - **动机**：感知源必须与执行目标同屏（虚拟屏），且不能依赖单个易碎接口。
 - **依据**：`screencap -d <虚拟屏id>` 在 vivo/Android 16 实测报 "Display Id is not valid"（lichj06）；纯 shell 的 `uiautomator dump` 只读焦点窗口、不能按 display 指定。
+- **D1 实测确认**：本机 `screencap -d 3 -p` 同样报 `Display Id '3' is not valid`，与预判一致。感知主路径必须用 scrcpy 流抽帧（`--no-playback` + `--record` 组合实测正常，录屏 512KB–1.5MB 有内容）。
 - **结构**：`FrameSource` 抽象（`ScreencapSource` 保留为实验项、`ScrcpyRecordSource` 为主路径、路径 C 可加 `ImageReader` 实现）；坐标一律 display-local。
 
 ## 决策 4：决策层复用 AutoGLM-Phone，`model_provider` 抽象
@@ -60,3 +67,22 @@ GitHub 已有 4 个"虚拟屏 + agent + 主屏不打扰"公开项目（ShadowAut
 ## 前瞻风险（答辩主动提出）
 
 Android 16/17 的 AppFunctions 安全架构可能收紧第三方后台自动化；OpenCyvis 的 Task Reparenting（`moveRootTaskToDisplay`）可作为"接管用户已打开 App"的后续扩展方向。
+
+## D1 实测总结（答辩素材）
+
+> 机型：Xiaomi Redmi 24129PN74C / Android 16 / HyperOS 3.0
+> 日期：2026-09-28　　结果：14 项中 13 项通过（仅 D1-11 多机型矩阵待测）
+
+### 答辩一句话结论
+
+**在小米 HyperOS 3.0 / Android 16 上，scrcpy `--new-display` + `input -d` + `--display-ime-policy=local` 构成的四重隔离（显示/焦点/IME/输入事件）全部实测通过，60 步长任务稳定，可同时建多块虚拟屏。**
+
+### 需在答辩中主动说明的限制
+
+| 限制 | 实测结果 | 降级方案 |
+|---|---|---|
+| `screencap -d` 不可用 | "Display Id is not valid" | 感知走 scrcpy 流抽帧（已验证） |
+| `input text` 不支持中文 | NullPointerException | ADBKeyboard `am broadcast` 或 `ACTION_SET_TEXT` |
+| 剪贴板系统级共享 | ClipboardManager 不区分 display | 应用层串行化/加锁 |
+| `am start --display` 需 system 权限 | SecurityException | 用 scrcpy `--start-app`（server 权限） |
+| 支付密码页 FLAG_SECURE | 首页不 secure，密码页待验证 | 演示规避密码页（分镜已设计） |
