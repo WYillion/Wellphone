@@ -30,6 +30,19 @@ python -m wellphone.main --phase 1 --start-app com.tencent.mm --text "收到，�
 python -m wellphone.main --phase 2 --start-app com.sankuai.meituan   # 美团：付款前停下
 ```
 
+## 自测
+
+```bash
+bash scripts/selftest.sh                       # 连通性自测：工具 / adb server / 设备状态 / display 基线
+bash scripts/selftest.sh --full                # 完整 D1：再建虚拟屏 + 注入点击 + 感知测试
+bash scripts/selftest.sh --full --app com.android.settings   # 顺带在虚拟屏启动指定 App
+bash scripts/selftest.sh --vd --keep           # 只建虚拟屏并保留（Ctrl+C 后手动关闭）
+```
+
+脚本会自动处理 adb 端口残留（5037 → 5038/5039 自动回退），并对每种设备状态（`device` / `unauthorized` / `offline` / 无设备）给出对应的修复建议；退出码 0 表示设备就绪。
+
+验收标准：**手机主屏照常用，虚拟屏窗口里的 App 独立运行，主屏一次都没被切走。**
+
 ## 环境变量
 
 | 变量 | 说明 | 默认 |
@@ -49,6 +62,21 @@ python -m wellphone.main --phase 2 --start-app com.sankuai.meituan   # 美团：
 - **决策**：AutoGLM-Phone 动作空间（`Launch/Tap/Type/Swipe/Back/Home/LongPress/DoubleTap/Wait/Take_over`），`model_provider` 抽象可替换本地 vLLM / 自研 dLLM。
 - **安全**：`take_over_gate` 规则层（支付/密码/验证码/删除/同意协议）+ 可插拔模型判定，规则独立于模型输出——模型只能加强拦截，不能放行。
 - 详细论证见 `docs/suggestion.md` 与 `docs/tech_choices.md`。
+
+## D1 实测结论（2026-09-28）
+
+机型：Xiaomi Redmi 24129PN74C / Android 16 / HyperOS 3.0
+
+| 实测项 | 结果 |
+|---|---|
+| scrcpy `--new-display` 建虚拟屏 + `--start-app` 跑 App | ✅ 虚拟屏 id=3 (1080x1920/373)，设置 App 成功启动 |
+| 主屏是否受影响 | ✅ 虚拟屏 tap/swipe/HOME 后主屏 `FocusedDisplayId=0` 不变 |
+| `input -d <id>` 注入 | ✅ tap / keyevent / swipe / text(ASCII) 均生效 |
+| `screencap -d <id>` | ❌ 不可用（"Display Id is not valid"），感知走 scrcpy 流抽帧 |
+| 中文输入 | ⚠️ `input text` 不支持中文（NPE），需 ADBKeyboard 广播降级 |
+| `--no-playback` + `--record` 无头录屏 | ✅ 正常工作，录屏 512KB |
+
+详见 `docs/feasibility.md`。
 
 ## 安全承诺
 
