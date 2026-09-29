@@ -12,12 +12,12 @@ def _client(dry_run: bool = True) -> AdbClient:
 
 def test_dry_run_tap_targets_virtual_display() -> None:
     out = _client().tap(120, 340, 21)
-    assert out == "[dry-run] adb shell input -d 21 tap 120 340"
+    assert out == "[dry-run] adb -P 5037 shell input -d 21 tap 120 340"
 
 
 def test_dry_run_swipe_includes_duration() -> None:
     out = _client().swipe(1, 2, 3, 4, 500, display_id=9)
-    assert out == "[dry-run] adb shell input -d 9 swipe 1 2 3 4 500"
+    assert out == "[dry-run] adb -P 5037 shell input -d 9 swipe 1 2 3 4 500"
 
 
 def test_refuses_main_display_tap() -> None:
@@ -37,13 +37,13 @@ def test_refuses_negative_display_id() -> None:
 
 def test_dry_run_ascii_text() -> None:
     out = _client().input_text("hello", 21)
-    assert out == "[dry-run] adb shell input -d 21 text 'hello'"
+    assert out == "[dry-run] adb -P 5037 shell input -d 21 text 'hello'"
 
 
 def test_serial_is_injected() -> None:
     client = AdbClient(Settings(dry_run=True, serial="ABC123"))
     out = client.tap(1, 1, 21)
-    assert out.startswith("[dry-run] adb -s ABC123 shell")
+    assert out.startswith("[dry-run] adb -P 5037 -s ABC123 shell")
 
 
 def test_list_displays_parses_dumpsys() -> None:

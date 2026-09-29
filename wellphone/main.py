@@ -9,7 +9,7 @@ from wellphone.agent.model_provider import ModelProvider, ScriptedProvider
 from wellphone.agent.vlm_agent import VlmAgent
 from wellphone.config.settings import Settings, load_settings
 from wellphone.device.adb_client import AdbClient
-from wellphone.device.frame_source import FrameSource, ScreencapSource, ScrcpyRecordSource
+from wellphone.device.frame_source import FrameSource, ScrcpyWindowSource, ScreencapSource
 from wellphone.device.virtual_display_runner import VirtualDisplayRunner
 from wellphone.executor.action_executor import ActionExecutor
 from wellphone.executor.input_channel import InputChannel
@@ -93,7 +93,11 @@ def main(argv: list[str] | None = None) -> int:
                 ]
             )
         elif args.perception == "scrcpy":
-            frame_source = ScrcpyRecordSource(settings.scrcpy_bin, settings.serial)
+            frame_source = ScrcpyWindowSource(
+                pid=runner.process_pid,
+                target_width=settings.display_width,
+                target_height=settings.display_height,
+            )
             provider = ModelProvider(
                 settings.vlm_base_url, settings.vlm_api_key, settings.vlm_model
             )

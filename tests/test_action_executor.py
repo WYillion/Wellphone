@@ -26,7 +26,7 @@ def _action(name: str, **kw) -> Action:
 def test_tap_goes_to_virtual_display(stack) -> None:
     adb, _, executor = stack
     out = executor.execute(_action(TAP, x=50, y=60))
-    assert out == "[dry-run] adb shell input -d 21 tap 50 60"
+    assert out == "[dry-run] adb -P 5037 shell input -d 21 tap 50 60"
 
 
 def test_type_sends_text(stack) -> None:
@@ -41,7 +41,7 @@ def test_launch_resolves_activity(stack) -> None:
     out = executor.execute(_action(LAUNCH, package="com.tencent.mm"))
     assert (
         out
-        == "[dry-run] adb shell am start --display 21 -f 0x10008000 -n com.tencent.mm/.ui.LauncherUI"
+        == "[dry-run] adb -P 5037 shell am start --display 21 -f 0x10008000 -n com.tencent.mm/.ui.LauncherUI"
     )
 
 

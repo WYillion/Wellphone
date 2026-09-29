@@ -11,11 +11,11 @@ proc = subprocess.Popen(
      '--start-app=com.android.settings',
      '--no-audio',
      '--stay-awake',
-     '--record=test_vd.mp4',
+     '--record=workspace/test_vd.mp4',
      '--record-format=mp4',
      '--no-playback'],
     env=env,
-    stdout=open('scrcpy_log2.txt', 'w'),
+    stdout=open('workspace/scrcpy_log2.txt', 'w'),
     stderr=subprocess.STDOUT,
     creationflags=subprocess.DETACHED_PROCESS if sys.platform == 'win32' else 0,
 )
@@ -23,11 +23,11 @@ proc = subprocess.Popen(
 time.sleep(8)
 
 if proc.poll() is None:
-    with open('scrcpy_pid.txt', 'w') as f:
+    with open('workspace/scrcpy_pid.txt', 'w') as f:
         f.write(str(proc.pid))
     print(f"OK: scrcpy running, PID={proc.pid}")
 else:
-    with open('scrcpy_log2.txt', 'r') as f:
+    with open('workspace/scrcpy_log2.txt', 'r') as f:
         log = f.read()
     print(f"FAIL: scrcpy exited code={proc.returncode}")
     print(log[-2000:])

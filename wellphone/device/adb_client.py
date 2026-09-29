@@ -17,11 +17,12 @@ class DisplayIdError(AdbError):
 class AdbClient:
     def __init__(self, settings: Settings):
         self._adb = settings.adb_bin
+        self._port = settings.adb_port
         self._serial = settings.serial
         self._dry_run = settings.dry_run
 
     def _base_cmd(self) -> list[str]:
-        cmd = [self._adb]
+        cmd = [self._adb, "-P", str(self._port)]
         if self._serial:
             cmd += ["-s", self._serial]
         return cmd

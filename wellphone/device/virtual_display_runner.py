@@ -28,6 +28,7 @@ class VirtualDisplayRunner:
             "--display-ime-policy=local",
             "--keep-active",
             "--no-audio",
+            "--always-on-top",
             "-b",
             "8M",
         ]
@@ -35,7 +36,17 @@ class VirtualDisplayRunner:
             cmd.append(f"--start-app={start_app}")
         return cmd
 
-    def create(self, start_app: str | None = None, wait_s: float = 15.0) -> int:
+    @property
+    def process_pid(self) -> int | None:
+        if self._process:
+            return self._process.pid
+        return None
+
+    def create(
+        self,
+        start_app: str | None = None,
+        wait_s: float = 15.0,
+    ) -> int:
         size = (
             f"{self._settings.display_width}x{self._settings.display_height}"
             f"/{self._settings.display_dpi}"
@@ -47,7 +58,10 @@ class VirtualDisplayRunner:
 
         before = set(self._adb.list_displays())
         self._process = subprocess.Popen(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=self._settings.adb_env(),
         )
 
         deadline = time.time() + wait_s

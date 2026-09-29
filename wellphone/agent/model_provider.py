@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 
 import requests
@@ -13,15 +14,10 @@ class ModelProviderError(RuntimeError):
     pass
 
 
-SYSTEM_PROMPT = """You control an Android app running on a dedicated virtual display.
-All coordinates are display-local pixels of that virtual display; the user's real main display must never be affected.
-Available actions: {actions}.
-Rules:
-1. Reply with exactly one JSON object and nothing else.
-2. JSON shape: {{"name": "<action>", "package": "...", "x": 0, "y": 0, "x2": 0, "y2": 0, "text": "...", "reason": "...", "duration_ms": 300}}.
-3. Omit fields the action does not need; always include "reason" for Take_over and Wait.
-4. Never enter passwords, payment PINs or verification codes yourself: choose Take_over with a short reason.
-5. Prefer tapping visible targets from the UI dump; use Wait after navigation; call Finish when the task is done.
+SYSTEM_PROMPT = """You are operating an Android app on a dedicated virtual display.
+All coordinates are display-local pixels of that virtual display.
+The user's real main display must never be affected.
+Never enter passwords, payment PINs or verification codes: use Take_over with a short reason.
 """
 
 
@@ -64,12 +60,13 @@ class ModelProvider:
             "messages": [
                 {
                     "role": "system",
-                    "content": SYSTEM_PROMPT.format(actions=", ".join(ACTIONS)),
+                    "content": SYSTEM_PROMPT,
                 },
                 {"role": "user", "content": content},
             ],
-            "max_tokens": 512,
-            "temperature": 0.2,
+            "max_tokens": 3000,
+            "temperature": 0.0,
+            "top_p": 0.85,
         }
         headers = {"Authorization": f"Bearer {self._api_key}"}
         try:
@@ -89,17 +86,78 @@ class ModelProvider:
             content_str = resp.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
             raise ModelProviderError(f"unexpected response shape: {resp.text[:300]}") from exc
-        return self._extract_json(content_str)
+        if os.environ.get("WELLPHONE_DEBUG_API"):
+            print(f"[debug] API response:\n{content_str[:1000]}")
+        return self._parse_response(content_str)
 
     @staticmethod
-    def _extract_json(content: str) -> dict:
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if not match:
-            raise ModelProviderError(f"no JSON object in model reply: {content[:200]!r}")
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError as exc:
-            raise ModelProviderError(f"invalid JSON in model reply: {content[:200]!r}") from exc
+    def _parse_response(content: str) -> dict:
+        finish_match = re.search(r'finish\s*\(\s*message\s*=\s*"(.*?)"\s*\)', content, re.DOTALL)
+        if finish_match:
+            return {"name": FINISH, "reason": finish_match.group(1)}
+
+        do_match = re.search(r'do\s*\(\s*action\s*=\s*(\w+)\s*\((.*?)\)\s*\)', content, re.DOTALL)
+        if do_match:
+            action_name = do_match.group(1)
+            params_str = do_match.group(2)
+            params = ModelProvider._parse_params(params_str)
+            params["name"] = action_name
+            return params
+
+        do_str_match = re.search(
+            r'do\s*\(\s*action\s*=\s*"(\w+)"\s*,?\s*(.*?)\s*\)', content, re.DOTALL
+        )
+        if do_str_match:
+            action_name = do_str_match.group(1)
+            params_str = do_str_match.group(2)
+            params = ModelProvider._parse_params(params_str)
+            params["name"] = action_name
+            if "message" in params and "reason" not in params:
+                params["reason"] = params.pop("message")
+            return params
+
+        action_names = "|".join(ACTIONS)
+        action_match = re.search(
+            rf'\b({action_names})\s*\((.*?)\)', content, re.DOTALL
+        )
+        if action_match:
+            action_name = action_match.group(1)
+            params_str = action_match.group(2)
+            params = ModelProvider._parse_params(params_str)
+            if not params and params_str.strip():
+                parts = [p.strip() for p in params_str.split(",") if p.strip()]
+                if action_name in ("Tap", "DoubleTap", "LongPress") and len(parts) >= 2:
+                    params = {"x": int(parts[0]), "y": int(parts[1])}
+                elif action_name == "Swipe" and len(parts) >= 4:
+                    params = {
+                        "x": int(parts[0]), "y": int(parts[1]),
+                        "x2": int(parts[2]), "y2": int(parts[3]),
+                    }
+            params["name"] = action_name
+            if "message" in params and "reason" not in params:
+                params["reason"] = params.pop("message")
+            return params
+
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        raise ModelProviderError(f"cannot parse model reply: {content[-300:]!r}")
+
+    @staticmethod
+    def _parse_params(params_str: str) -> dict:
+        result = {}
+        pattern = r'(\w+)\s*=\s*(?:"([^"]*)"|(\d+))'
+        for match in re.finditer(pattern, params_str):
+            key = match.group(1)
+            if match.group(2) is not None:
+                result[key] = match.group(2)
+            elif match.group(3) is not None:
+                result[key] = int(match.group(3))
+        return result
 
     @staticmethod
     def parse_action(payload: dict, display_id: int) -> Action:
@@ -133,7 +191,7 @@ class ScriptedProvider:
     ) -> dict:
         if self._script:
             return self._script.pop(0)
-        return {"name": FINISH_ACTION, "reason": "script exhausted"}
+        return {"name": FINISH, "reason": "script exhausted"}
 
     def parse_action(self, payload: dict, display_id: int) -> Action:
         return ModelProvider.parse_action(payload, display_id)
