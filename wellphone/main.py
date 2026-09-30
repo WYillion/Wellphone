@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from dataclasses import replace
 
 from wellphone.agent.mission_plan import MissionPlan
@@ -17,8 +18,13 @@ from wellphone.guard.take_over_gate import TakeOverGate
 
 PHASE_TASKS = {
     "1": (
-        "打开微信，进入最近聊天列表的第一条对话，回复「{text}」并发送，"
-        "看到消息发出后调用 Finish。"
+        "打开微信，进入最近聊天列表的第一条对话。"
+        "在聊天界面底部找到输入框并点击它，"
+        "用 Type 动作输入文字「{text}」，"
+        "然后点击发送按钮把消息发出去。"
+        "必须在聊天界面中看到自己发出的「{text}」消息后，"
+        "才能调用 Finish。"
+        "如果还没输入和发送消息，不要调用 Finish。"
     ),
     "2": (
         "打开美团，搜索美式咖啡，选择一款加入购物车并进入订单确认页；"
@@ -80,7 +86,11 @@ def main(argv: list[str] | None = None) -> int:
 
     adb = AdbClient(settings)
     runner = VirtualDisplayRunner(settings, adb)
-    display_id = runner.create(start_app=args.start_app)
+    display_id = runner.create()
+    if args.start_app and not settings.dry_run:
+        time.sleep(2.0)
+        runner.start_app(args.start_app, display_id)
+        time.sleep(3.0)
     frame_source: FrameSource | None = None
     try:
         if settings.dry_run:
@@ -107,9 +117,22 @@ def main(argv: list[str] | None = None) -> int:
                 settings.vlm_base_url, settings.vlm_api_key, settings.vlm_model
             )
         frame_source.start(display_id)
-        agent = VlmAgent(provider, display_id)
+        agent = VlmAgent(
+            provider, display_id,
+            display_width=settings.display_width,
+            display_height=settings.display_height,
+        )
         gate = TakeOverGate()
         executor = ActionExecutor(adb, runner, InputChannel(adb))
+
+        def ui_dump_provider() -> str:
+            if settings.dry_run:
+                return ""
+            try:
+                return adb.ui_dump(display_id)
+            except Exception:
+                return ""
+
         plan = MissionPlan(
             frame_source,
             agent,
@@ -117,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
             executor,
             max_steps=settings.max_steps,
             step_interval_s=settings.step_interval_s,
+            ui_dump_provider=ui_dump_provider,
         )
 
         if args.phase:

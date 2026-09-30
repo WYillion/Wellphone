@@ -219,6 +219,8 @@ class ScrcpyWindowSource(FrameSource):
         self._target_height = target_height
         self._hwnd: int | None = None
         self._display_id = 0
+        self._capture_width = 0
+        self._capture_height = 0
 
     def _find_window(self) -> int | None:
         user32 = ctypes.windll.user32
@@ -267,9 +269,15 @@ class ScrcpyWindowSource(FrameSource):
             img = img.resize(
                 (self._target_width, self._target_height), Image.LANCZOS
             )
+        self._capture_width = img.width
+        self._capture_height = img.height
         buf = io.BytesIO()
         img.convert("RGB").save(buf, format="PNG")
         return buf.getvalue()
+
+    @property
+    def capture_size(self) -> tuple[int, int]:
+        return (self._capture_width, self._capture_height)
 
     def stop(self) -> None:
         return None

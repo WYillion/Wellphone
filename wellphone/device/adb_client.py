@@ -111,3 +111,8 @@ class AdbClient:
     def current_focus(self) -> str:
         out = self.shell("dumpsys window | grep mCurrentFocus")
         return out.strip()
+
+    def ui_dump(self, display_id: int) -> str:
+        device_path = f"/sdcard/wellphone_uidump_{display_id}.xml"
+        self.shell(f"uiautomator dump --display {display_id} {device_path}")
+        return self.shell(f"cat {device_path}")

@@ -19,7 +19,7 @@ def test_rule_blocks_sensitive_text() -> None:
 
 def test_rule_blocks_sensitive_page_text() -> None:
     gate = TakeOverGate()
-    decision = gate.check(_action(TAP, x=100, y=200), page_text="请输入验证码")
+    decision = gate.check(_action(TYPE, text="123456"), page_text="请输入验证码")
     assert decision.verdict == PAUSE
 
 

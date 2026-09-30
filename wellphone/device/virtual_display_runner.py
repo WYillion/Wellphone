@@ -29,6 +29,7 @@ class VirtualDisplayRunner:
             "--keep-active",
             "--no-audio",
             "--always-on-top",
+            "--max-size=540",
             "-b",
             "8M",
         ]

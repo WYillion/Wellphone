@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from wellphone.agent.action_space import Action
+from wellphone.agent.action_space import Action, TYPE
 
 ALLOW = "allow"
 PAUSE = "pause"
@@ -34,8 +34,10 @@ class TakeOverGate:
 
     def check(self, action: Action, page_text: str = "") -> GateDecision:
         targets = " ".join(
-            t for t in (action.reason, action.text, page_text) if t
+            t for t in (action.reason, action.text) if t
         )
+        if action.name == TYPE and page_text:
+            targets += " " + page_text
         for pattern in SENSITIVE_PATTERNS:
             if pattern.search(targets):
                 return GateDecision(PAUSE, f"rule:{pattern.pattern}")
